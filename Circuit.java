@@ -1,5 +1,6 @@
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -12,8 +13,12 @@ public class Circuit {
 	public ArrayList<String> inputLabels;
 	public ArrayList<String> outputLabels;
 	public int propagationTime;
+	public int count;
+	String propagationDataKeep;
 
 	public Circuit(String circuitData, String propagationData) throws FileNotFoundException{
+		count = 0;
+		propagationDataKeep = propagationData;
 		gates = new HashMap<String, Gate>();	//initialize HashMap to store the gate information
 		propagationTimes = InputParser.getPropagationTime(propagationData);	//read prop times from file
 
@@ -25,7 +30,7 @@ public class Circuit {
 	//then builds the circuit data structure accordingly
 	//might change to a switch block for microscopic performance enhancement
 	//remove flag data first, then process remaining Strings
-	public void processData(ArrayList<ArrayList<String>> data){
+	public void processData(ArrayList<ArrayList<String>> data) throws FileNotFoundException{
 		for(int i = 0; i < data.size(); i++){
 			if(data.get(i).get(0).equals("IOMATCH")){
 				data.get(i).remove(0);
@@ -51,8 +56,12 @@ public class Circuit {
 				data.get(i).remove(0);
 				processOutput(data.get(i));
 			}
+			else if (data.get(i).get(0).equals("CELLMATCH")){
+				data.get(i).remove(0);
+				processCell(data.get(i));
+			}
 			else{
-				System.err.println("Syntax Error");
+				System.err.println("Syntax Error while processing data");
 				System.exit(0);
 			}	
 		}
@@ -66,10 +75,18 @@ public class Circuit {
 
 	//activate the inputs starting the recursive function
 	public int [] execute(int [] vectors){
+		if(vectors.length == 3)
+			System.out.println("Vectors" + Arrays.toString(vectors));
 		reset();
-		for(int j = 0; j < vectors.length; j++){
-			gates.get(inputLabels.get(j)).value = intToBoolean(vectors[j]);	//set the signal from the vector input
-			gates.get(inputLabels.get(j)).activate();	//activate that input
+//		for(int j = 0; j < vectors.length; j++){
+//			gates.get(inputLabels.get(j)).value = intToBoolean(vectors[j]);	//set the signal from the vector input
+//			gates.get(inputLabels.get(j)).activate();	//activate that input
+//		}
+		int q = 0;
+		for(String s: inputLabels){
+			gates.get(s).value = intToBoolean(vectors[q]);
+			gates.get(s).activate();
+			q++;
 		}
 
 		int tempTime = 0;
@@ -83,9 +100,17 @@ public class Circuit {
 		for(int i = 0; i < returnData.length; i++){
 			returnData[i] = booleanToInt(gates.get(outputLabels.get(i)).value);
 		}
+		//printArray(returnData, vectors.length);
 		return returnData;
 	}
 
+	public void printArray(int [] a, int b){
+		if(b == 2)
+			System.out.print("HalfAdder Data: " + a[0] + " " + a[1]);
+		else
+			System.out.print("Sum: " + a[0] + " Carry: " + a[1]);
+		System.out.println();
+	}
 	public static int booleanToInt(boolean boo){
 		if (boo == true)
 			return 1;
@@ -100,18 +125,18 @@ public class Circuit {
 			return false;
 	}
 
-	//method for dumping entire HashMap if needed for debugging
-	@SuppressWarnings("rawtypes")
-	public void printMap() {
-		//use a soft copy of gates to prevent it from being destroyed
-		HashMap<String, Gate> temp = new HashMap<String, Gate>(gates);
-		Iterator it = temp.entrySet().iterator();
-		while (it.hasNext()) {
-			Map.Entry pairs = (Map.Entry)it.next();
-			((Gate) pairs.getValue()).printGate();
-			it.remove(); // avoids a ConcurrentModificationException
-		}
-	}
+//	//method for dumping entire HashMap if needed for debugging
+//	@SuppressWarnings("rawtypes")
+//	public void printMap() {
+//		//use a soft copy of gates to prevent it from being destroyed
+//		HashMap<String, Gate> temp = new HashMap<String, Gate>(gates);
+//		Iterator it = temp.entrySet().iterator();
+//		while (it.hasNext()) {
+//			Map.Entry pairs = (Map.Entry)it.next();
+//			((Gate) pairs.getValue()).printGate();
+//			it.remove(); // avoids a ConcurrentModificationException
+//		}
+//	}
 
 	//process IO statement
 	public void processIO(ArrayList<String> data){
@@ -138,25 +163,46 @@ public class Circuit {
 	public void processGate(ArrayList<String> data){
 		gates.put(data.get(1), new Gate(data.get(0), data.get(1)));
 	}
+	
+	public void processCell(ArrayList<String> data) throws FileNotFoundException{
+		gates.put(data.get(1), new Cell(new Circuit(data.get(0), propagationDataKeep), data.get(1)));
+	}
 
 	//process input statement
 	public void processInput(ArrayList<String> data){
-		//set output reference to appropriate child
-		gates.get(data.get(0)).output.add(gates.get(data.get(1)));
-		gates.get(data.get(1)).input.add(Integer.parseInt(data.get(2)), gates.get(data.get(0)));
+		Gate parent = gates.get(data.get(0));
+		Gate child = gates.get(data.get(1));
+		int parentOutputPort = count;
+		int childInputPort = Integer.parseInt(data.get(2));
+		Connection newConnection = new Connection(parent, child, parentOutputPort, childInputPort);
+		
+		parent.output.add(newConnection);
+		child.input.add(newConnection);
+		count++;
 	}
 
 	//process output statement
 	public void processOutput(ArrayList<String> data){
-		//have gate and output reference each other
-		gates.get(data.get(0)).output.add(Integer.parseInt(data.get(1)), gates.get(data.get(2)));
-		gates.get(data.get(2)).input.add(gates.get(data.get(0)));
+		Gate parent = gates.get(data.get(0));
+		Gate child = gates.get(data.get(2));
+		int parentOutputPort = Integer.parseInt(data.get(1));
+		int childInputPort = 0;		//output will only have one input
+		Connection newConnection = new Connection(parent, child, parentOutputPort, childInputPort);
+		
+		parent.output.add(newConnection);
+		child.input.add(newConnection);
 	}
 
 	//create a connection between two gates
 	public void connectGates(ArrayList<String> data){
-		//have gates reference each other
-		gates.get(data.get(0)).output.add(Integer.parseInt(data.get(1)), gates.get(data.get(2)));
-		gates.get(data.get(2)).input.add(Integer.parseInt(data.get(3)), gates.get(data.get(0)));
+		Gate parent = gates.get(data.get(0));
+		Gate child = gates.get(data.get(2));
+		int parentOutputPort = Integer.parseInt(data.get(1));
+		int childInputPort = Integer.parseInt(data.get(3));
+		Connection newConnection = new Connection(parent, child, parentOutputPort, childInputPort);
+		
+		//make both gates reference the same connection object
+		parent.output.add(newConnection);
+		child.input.add(newConnection);
 	}
 }

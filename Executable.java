@@ -9,8 +9,8 @@ public class Executable {
 	public static void main(String args []) throws FileNotFoundException{
 //		AdditionProblem problem = new AdditionProblem(123, 7);
 //		problem.execute();
-		Circuit circuit = new Circuit("D://ClassCircuit.txt", "D://propagationTimes.txt");	//construct circuit
-		execute(circuit, "D://vectors.txt");
+		Circuit circuit = new Circuit("D://decoder.txt", "D://propagationTimes.txt");	//construct circuit
+		execute(circuit, "D://halfaddVectors.txt");
 	}
 
 	public static void execute(Circuit circuit, String filePath) throws FileNotFoundException{

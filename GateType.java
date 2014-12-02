@@ -8,7 +8,8 @@ public enum GateType
 	XOR,
 	//added input and output as a gate type
 	INPUT,
-	OUTPUT;
+	OUTPUT, 
+	CELL;
 	static GateType getTypeFromString(String type)
 	{
 		if (type.toUpperCase().trim().equals("AND"))
@@ -27,6 +28,8 @@ public enum GateType
 			return OUTPUT;
 		else if(type.toUpperCase().trim().equals("XOR"))
 			return XOR;
+		else if(type.toUpperCase().trim().equals("CELL"))
+			return CELL;
 		//somebody didn't type in the input correctly
 		else{
 			System.err.println("You dun messed up son!  " + type.toUpperCase().trim() + " isn't a valid gate type!");

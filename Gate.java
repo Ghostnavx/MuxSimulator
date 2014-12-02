@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.HashMap;
 
 // Each gate object represents a gate (duh). Program will consider the input and output objects as gates
 // with no logic (data just passes through).
@@ -7,12 +8,12 @@ import java.util.ArrayList;
 
 public class Gate extends Executable{
 	public String name;
-	public ArrayList<Gate> input;  //parents, their index in the array will correspond to the input port
-	public ArrayList<Gate> output;  //children, index in array will correspond to output port
+	public ArrayList<Connection> input;  //parents, their index in the array will correspond to the input port
+	public ArrayList<Connection> output;  //children, index in array will correspond to output port
 	public GateType type;  //what type of gate
 	public boolean activated;  //has it been activated?
 	public boolean value;	//what is its signal?
-	public int time;	//total propagation time at that gate
+	public int time;	//total propagation time at that gate 
 
 	//	possible alternative to having Executable check if all parents are activated, use a counter int
 	//	stored in the gate to be incremented each time a parent gets activated.  When counter reaches 
@@ -29,26 +30,26 @@ public class Gate extends Executable{
 	public Gate(String newType, String newName){	//overloaded constructor
 		type = GateType.getTypeFromString(newType);
 		name = newName;
-		input = new ArrayList<Gate>();
-		output = new ArrayList<Gate>();
+		input = new ArrayList<Connection>();
+		output = new ArrayList<Connection>();
 	}
-	
-	public boolean getValue(Gate g){
-		return g.value;
+
+	public boolean getValue(Connection g){
+		return g.getParent().value;
 	}
 
 	//simple print method to return data about specified gate
-	public void printGate(){
-		System.out.println("ID: " + name + "\nType: " + type + "\nInputs:");
-		for(Gate g: input){
-			System.out.print(g.name + ", ");
-		}
-		System.out.println("\nOutputs:");
-		for(Gate g: output){
-			System.out.print(g.name + ", ");
-		}
-		System.out.println("\nActivated: " + activated + "\n");
-	}
+	//	public void printGate(){
+	//		System.out.println("ID: " + name + "\nType: " + type + "\nInputs:");
+	//		for(Gate g: input){
+	//			System.out.print(g.name + ", ");
+	//		}
+	//		System.out.println("\nOutputs:");
+	//		for(Gate g: output){
+	//			System.out.print(g.name + ", ");
+	//		}
+	//		System.out.println("\nActivated: " + activated + "\n");
+	//	}
 
 	//activates the gate and activates children if they're ready
 	public void activate(){
@@ -57,9 +58,9 @@ public class Gate extends Executable{
 		time = 0;
 
 		//find the longest time from parents (critical time)
-		for(Gate g:input){
-			if(time < g.time)
-				time = g.time;
+		for(Connection g:input){
+			if(time < g.getParent().time)
+				time = g.getParent().time;
 		}
 
 		//add current gate's propagation delay to critical time
@@ -69,17 +70,17 @@ public class Gate extends Executable{
 		processGateLogic();
 
 		//iterate through all the inputs of each child to check if they're ready to be activated
-		for(Gate g : output){  //	Cycle through all outputs
+		for(Connection g : output){  //	Cycle through all outputs
 			allActive = true;  //	variable to check if all inputs are activated
-			for(Gate j : g.input){	//	iterate through all the inputs
-				if(j.activated == false)	//	if one of the inputs on the child aren't activated, don't activate it
+			for(Connection j : g.getChild().input){	//	iterate through all the inputs
+				if(j.getParent().activated == false)	//	if one of the inputs on the child aren't activated, don't activate it
 					allActive = false;
 			}
 			if(allActive == true)
-				g.activate();	//	if all of the inputs on this child are active, then activate that child (yay recursion)
+				g.getChild().activate();	//	if all of the inputs on this child are active, then activate that child (yay recursion)
 		}	
 	}
-	
+
 	public void processGateLogic(){
 		boolean truth;
 		//big ol' switch statement, may add some methods to break this up for ease of reading
@@ -88,8 +89,8 @@ public class Gate extends Executable{
 		//start with a true value, if any inputs them are false, then value is false
 		case "AND":
 			truth = true;
-			for( Gate gate : input){
-				if(getValue(gate) == false)
+			for( Connection gate : input){
+				if(gate.getParent().getValue(gate) == false)
 					truth = false;
 			}
 			value = truth;
@@ -98,8 +99,8 @@ public class Gate extends Executable{
 			//start with false value, if any inputs are true, then value is true
 		case "OR":
 			truth = false;
-			for( Gate gate : input){
-				if(getValue(gate) == true){
+			for( Connection gate : input){
+				if(gate.getParent().getValue(gate) == true){
 					truth = true;
 					break;
 				}
@@ -109,14 +110,14 @@ public class Gate extends Executable{
 
 			//return opposite of input
 		case "NOT":
-			value = !(getValue(input.get(0)));
+			value = !(input.get(0).getParent().getValue(input.get(0)));
 			break;
 
 			//inverted and gate
 		case "NAND":
 			truth = true;
-			for( Gate gate : input){
-				if(getValue(gate) == false)
+			for( Connection gate : input){
+				if(gate.getParent().getValue(gate) == false)
 					truth = false;
 			}
 			value = !truth;
@@ -125,8 +126,8 @@ public class Gate extends Executable{
 			//inverted or gate
 		case "NOR":
 			truth = false;
-			for( Gate gate : input){
-				if(getValue(gate) == true){
+			for( Connection gate : input){
+				if(gate.getParent().getValue(gate) == true){
 					truth = true;
 					break;
 				}
@@ -134,13 +135,13 @@ public class Gate extends Executable{
 			value = !truth;
 			break;
 
-			//exclusive or gate, if we find more than one input set to true, then return false
+			//exclusive "or" gate, if we find more than one input set to true, then return false
 		case "XOR":
 			truth = false;
-			for( Gate gate : input){
-				if(getValue(gate) == true && truth == false)
+			for( Connection gate : input){
+				if(gate.getParent().getValue(gate) == true && truth == false)
 					truth = true;
-				else if(getValue(gate) == true && truth == true){
+				else if(gate.getParent().getValue(gate) == true && truth == true){
 					truth = false;
 					break;
 				}
@@ -154,9 +155,11 @@ public class Gate extends Executable{
 
 			//same as input type, no logic, just passes value through
 		case "OUTPUT":
-			value = getValue(input.get(0));
+			value = input.get(0).getParent().getValue(input.get(0));
+			break;
+			
+		case "CELL":
 			break;
 		}
 	}
-
 }

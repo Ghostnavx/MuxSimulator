@@ -22,7 +22,7 @@ public class InputParser {
 	public final static Pattern NAND = Pattern.compile("^NAND *\\( *\\d *\\)");
 	public final static Pattern NOR = Pattern.compile("^NOR *\\( *\\d *\\)");
 	public final static Pattern XOR = Pattern.compile("^XOR *\\( *\\d *\\)");
-	public final static Pattern Cell = Pattern.compile("^CELL *\\( *\\w+ *, *\\w+ *\\)");
+	public final static Pattern cell = Pattern.compile("^CELL *\\(");
 	public static Matcher ANDMatch;
 	public static Matcher ORMatch;
 	public static Matcher NOTMatch;
@@ -79,6 +79,7 @@ public class InputParser {
 			NORMatch = NOR.matcher(line);
 			NANDMatch = NAND.matcher(line);
 			XORMatch = XOR.matcher(line);
+			cellMatch = cell.matcher(line);
 
 			//another big ol' block of if/else shenanigans
 			//stores each time into a HashMap for reference later on
@@ -94,9 +95,11 @@ public class InputParser {
 				time.put("NAND", Integer.parseInt(line.substring(line.indexOf("(") +1, line.indexOf(")"))));
 			else if(XORMatch.find())
 				time.put("XOR", Integer.parseInt(line.substring(line.indexOf("(") +1, line.indexOf(")"))));
+			else if (cellMatch.find())
+				time.put("CELL", Integer.parseInt(line.substring(line.indexOf("(") +1, line.indexOf(")"))));
 			else{
 				//if you're reading this, your input file was wonky
-				System.err.println("Syntax Error on line " + count);
+				System.err.println("Syntax Error on line " + count + " while parsing propagation data");
 				System.exit(1);	//you killed the program, good job
 			}
 			count++;
@@ -123,6 +126,7 @@ public class InputParser {
 			connectionMatch = connection.matcher(line);
 			inputMatch = input.matcher(line);
 			outputMatch = output.matcher(line);
+			cellMatch = cell.matcher(line);
 
 			//for each, remove all the punctuation and add an identifier to the front
 			if(IOMatch.find()){
@@ -149,8 +153,12 @@ public class InputParser {
 				data.add( parseLine(line));
 				data.get(count).add(0, "OUTPUTMATCH");
 			}
+			else if (cellMatch.find()){
+				data.add(parseLine(line));
+				data.get(count).add(0, "CELLMATCH");
+			}
 			else{
-				System.err.println("Syntax Error on line " + count);
+				System.err.println("Syntax Error on line " + count + " while parsing circuit data");
 				System.exit(1);
 			}
 			count++;
